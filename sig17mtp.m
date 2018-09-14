@@ -24,8 +24,10 @@ source.img = reshape(source_img,[],3);
 ref.img = reshape(ref_img,[],3);
 
 % Find Face Normals & 2D positions
+tic;
 [source.normal,source.mask,source.posMap]=img2facedata(source_img);
 [ref.normal,ref.mask,ref.posMap]=img2facedata(ref_img);
+toc;
 
 source.normal = reshape(source.normal,[],3);
 source.mask = reshape(source.mask(:,:,1),[],1);
@@ -35,11 +37,19 @@ ref.normal = reshape(ref.normal,[],3);
 ref.mask = reshape(ref.mask(:,:,1),[],1);
 ref.posMap = reshape(ref.posMap,[],3);
 
-source.s = [wc*source.img(source.mask,:) source.normal(source.mask,:)*wn source.posMap(source.mask,1:2)*wp];
-ref.s = [wc*ref.img(ref.mask,:) ref.normal(ref.mask,:)*wn ref.posMap(ref.mask,1:2)*wp];
+%% transfer to Lab to transfer only with lightness
+source.labimg = rgb2lab(source.img);
+ref.labimg = rgb2lab(ref.img);
+
+source.s = [wc*source.labimg(source.mask,1)./100 source.normal(source.mask,:)*wn source.posMap(source.mask,1:2)*wp];
+ref.s = [wc*ref.labimg(ref.mask,1)./100 ref.normal(ref.mask,:)*wn ref.posMap(ref.mask,1:2)*wp];
+
+%% transfer with RGB 
+%source.s = [wc*source.img(source.mask,:) source.normal(source.mask,:)*wn source.posMap(source.mask,1:2)*wp];
+%ref.s = [wc*ref.img(ref.mask,:) ref.normal(ref.mask,:)*wn ref.posMap(ref.mask,1:2)*wp];
 
 
-% Color-Transfer 
+%% Color-Transfer 
 Ndim = size(source.s,2);
 Si = source.s;
 Ls = size(Si,1);
@@ -60,10 +70,20 @@ end
 So = pdf_transfer(Si_extra', Sr', R, 0.2);
 So = So';
 
-output = source.img;
-output(source.mask,:)=So(1:Ls,1:3);
+%% ouput for rgb
+%output = source.img;
+%output(source.mask,:)=So(1:Ls,1:3);
+%output = reshape(output,size(source_img));
+%output_r = regrain(source_img,output,[0.125]);
+
+%% ouput for only lightness
+output = source.labimg;
+output(source.mask,1)=So(1:Ls,1)*100;
+output = lab2rgb(output);
 output = reshape(output,size(source_img));
 output_r = regrain(source_img,output,[0.125]);
+
+%%
 % output_r = output;
 out_img = imresize(output_r,size(source.diff(:,:,1))) + source.diff; 
 
